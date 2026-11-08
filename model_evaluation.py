@@ -95,10 +95,13 @@ def encode_class_labels(raw_labels: pd.Series, class_names: list[str]) -> np.nda
     An unknown label raises a clear error, instead of silently producing
     wrong metrics.
     """
-    label_text = normalise_label_text(raw_labels)
-    class_code_by_name = {class_name: class_code for class_code, class_name in enumerate(class_names)}
+    # Matching ignores upper/lower case, so "seker" and "Seker" both mean "SEKER".
+    original_label_text = normalise_label_text(raw_labels)
+    label_text = original_label_text.str.casefold()
+    class_code_by_name = {class_name.casefold(): class_code for class_code, class_name in enumerate(class_names)}
 
-    unknown_labels = sorted(set(label_text) - set(class_code_by_name))
+    # Report unknown labels exactly as they are written in the file.
+    unknown_labels = sorted(set(original_label_text[~label_text.isin(class_code_by_name)]))
     if unknown_labels:
         raise ValueError(
             f"Target column has labels not seen during training: {unknown_labels[:10]}. "
@@ -143,6 +146,12 @@ def compute_evaluation_metrics(
         "AUC": float("nan"),
     }
 
+    # MCC needs at least two different classes among the true and predicted
+    # labels. With only one class, scikit-learn returns 0, which would wrongly
+    # suggest a bad model, so we report "not defined" (NaN) instead.
+    if len(set(np.asarray(true_class_codes).tolist()) | set(np.asarray(predicted_class_codes).tolist())) < 2:
+        metric_scores["MCC"] = float("nan")
+
     if predicted_probabilities is not None:
         try:
             if is_binary_problem:
@@ -185,12 +194,25 @@ def build_confusion_matrix(true_class_codes, predicted_class_codes, class_count:
     return confusion_matrix(true_class_codes, predicted_class_codes, labels=list(range(class_count)))
 
 
+def find_relevant_class_codes(true_class_codes, predicted_class_codes) -> list[int]:
+    """Classes that appear in the data OR in the predictions (sorted)."""
+    return sorted(set(np.asarray(true_class_codes).tolist()) | set(np.asarray(predicted_class_codes).tolist()))
+
+
 def build_classification_report(true_class_codes, predicted_class_codes, class_names: list[str]) -> pd.DataFrame:
+    """
+    Per-class precision / recall / F1.
+
+    Only classes that appear in the data or in the predictions are listed.
+    A class that is in neither would be an all-zero row, and those rows
+    would wrongly pull the "macro avg" (plain average over rows) down.
+    """
+    relevant_class_codes = find_relevant_class_codes(true_class_codes, predicted_class_codes)
     report_by_class = classification_report(
         true_class_codes,
         predicted_class_codes,
-        labels=list(range(len(class_names))),
-        target_names=class_names,
+        labels=relevant_class_codes,
+        target_names=[class_names[class_code] for class_code in relevant_class_codes],
         output_dict=True,
         zero_division=0,
     )

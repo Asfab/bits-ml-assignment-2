@@ -87,19 +87,57 @@ def read_uploaded_csv(uploaded_bytes: bytes) -> pd.DataFrame:
     return uploaded_table
 
 
+def simplify_column_name(column_name: str) -> str:
+    """'Shape Factor1', 'shape_factor1' and 'ShapeFactor1' all become 'shapefactor1'."""
+    return "".join(character for character in str(column_name).casefold() if character.isalnum())
+
+
+def match_expected_column_names(uploaded_table: pd.DataFrame, expected_column_names: list[str]) -> pd.DataFrame:
+    """
+    Rename uploaded columns to the names used in training when they differ
+    only in upper/lower case, spaces or underscores. Other columns are kept
+    as they are (extra columns are simply ignored later).
+    """
+    expected_name_by_simple_name = {simplify_column_name(name): name for name in expected_column_names}
+    renamed_columns = {
+        column_name: expected_name_by_simple_name[simplify_column_name(column_name)]
+        for column_name in uploaded_table.columns
+        if simplify_column_name(column_name) in expected_name_by_simple_name
+        and column_name != expected_name_by_simple_name[simplify_column_name(column_name)]
+    }
+    return uploaded_table.rename(columns=renamed_columns)
+
+
 def find_upload_problems(uploaded_table: pd.DataFrame, training_metadata: dict) -> list[str]:
     """Return readable problems with the uploaded file; an empty list means it is usable."""
+    if uploaded_table.empty:
+        return ["The file has no rows."]
     problems = []
     missing_feature_columns = [
         column_name for column_name in training_metadata["feature_columns"] if column_name not in uploaded_table.columns
     ]
     if missing_feature_columns:
-        problems.append(f"Missing feature columns: {missing_feature_columns}")
+        problems.append(f"Missing feature columns ({len(missing_feature_columns)}): {', '.join(missing_feature_columns)}")
     if training_metadata["target_column"] not in uploaded_table.columns:
         problems.append(f"Missing target column: '{training_metadata['target_column']}'")
-    if uploaded_table.empty:
-        problems.append("The file has no rows.")
     return problems
+
+
+def is_different_dataset(uploaded_table: pd.DataFrame, training_metadata: dict) -> bool:
+    """True when not even one training feature column is present."""
+    return not any(column_name in uploaded_table.columns for column_name in training_metadata["feature_columns"])
+
+
+def convert_features_to_numbers(feature_table: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """
+    Turn every feature value into a number. Text that is not a number
+    (for example "n/a" or "-") becomes an empty value, which the saved
+    pipeline fills with the training median. Returns the cleaned table and
+    the number of values that had to be replaced.
+    """
+    numeric_features = feature_table.apply(pd.to_numeric, errors="coerce")
+    replaced_value_count = int((numeric_features.isna() & feature_table.notna()).sum().sum())
+    return numeric_features, replaced_value_count
 
 
 def draw_confusion_matrix(matrix_counts: np.ndarray, class_names: list[str], chart_title: str):
@@ -231,18 +269,54 @@ else:
     st.info("Upload a test CSV in the sidebar, or switch on the bundled test data.")
     st.stop()
 
+evaluation_table = match_expected_column_names(
+    evaluation_table, training_metadata["feature_columns"] + [target_column]
+)
+
+if is_different_dataset(evaluation_table, training_metadata):
+    st.error(
+        f"'{data_source_label}' does not look like Dry Bean data, so it cannot be evaluated here. "
+        "These five models were trained on the UCI Dry Bean dataset and can only score data with the same "
+        "16 measurement columns and the 'Class' column. Evaluating another dataset would need new models "
+        "trained on that dataset. Use 'Download sample test CSV' in the sidebar to see the expected format."
+    )
+    with st.expander("Columns this app expects"):
+        st.write(training_metadata["feature_columns"] + [target_column])
+    with st.expander(f"Columns found in '{data_source_label}'"):
+        st.write(list(evaluation_table.columns))
+    st.stop()
+
 upload_problems = find_upload_problems(evaluation_table, training_metadata)
 if upload_problems:
     for problem_message in upload_problems:
         st.error(problem_message)
+    st.caption("Use 'Download sample test CSV' in the sidebar to see the expected format.")
     st.stop()
 
-evaluation_features = evaluation_table[training_metadata["feature_columns"]]
+evaluation_features, replaced_value_count = convert_features_to_numbers(
+    evaluation_table[training_metadata["feature_columns"]]
+)
+if replaced_value_count:
+    st.warning(
+        f"{replaced_value_count} feature value(s) were not numbers (for example 'n/a'). "
+        "They were treated as missing and filled with the training median."
+    )
 try:
     true_class_codes = encode_class_labels(evaluation_table[target_column], class_names)
 except ValueError as label_error:
     st.error(str(label_error))
     st.stop()
+
+# Tell the user when the file holds only some of the varieties, because
+# the confusion matrix will then have empty rows (that is expected).
+present_class_names = [class_names[class_code] for class_code in sorted(set(true_class_codes.tolist()))]
+if len(present_class_names) < class_count:
+    st.info(
+        f"This file contains only {len(present_class_names)} of the {class_count} varieties "
+        f"({', '.join(present_class_names)}). In the confusion matrix, the rows of the missing varieties "
+        "are empty. The classification report lists only the varieties that are in the file or that "
+        "the model predicted."
+    )
 
 with st.expander(f"Preview: {data_source_label} — {len(evaluation_table):,} rows"):
     st.dataframe(evaluation_table.head(20), width="stretch")
@@ -261,9 +335,18 @@ with selected_model_tab:
     metric_columns = st.columns(len(METRIC_DISPLAY_ORDER))
     for metric_column, metric_name in zip(metric_columns, METRIC_DISPLAY_ORDER):
         metric_column.metric(metric_name, format_score(selected_evaluation.metric_scores[metric_name]))
-    st.caption("Precision, Recall and F1 are weighted averages over the 7 classes; AUC is one-vs-rest weighted.")
-    if np.isnan(selected_evaluation.metric_scores["AUC"]):
-        st.caption("AUC shows n/a because the uploaded data does not contain all 7 varieties.")
+    st.caption("Precision, Recall and F1 are weighted averages over the classes (weighted by the number of rows "
+               "of each class in the file); AUC is one-vs-rest, weighted the same way.")
+    undefined_metric_names = [
+        metric_name for metric_name, score in selected_evaluation.metric_scores.items() if np.isnan(score)
+    ]
+    if undefined_metric_names:
+        st.caption(
+            f"{' and '.join(undefined_metric_names)} "
+            f"{'show' if len(undefined_metric_names) > 1 else 'shows'} n/a because "
+            "it is not defined when the file "
+            "contains only one variety (it needs at least two classes to compare)."
+        )
 
     confusion_column, report_column = st.columns([1.1, 1])
     with confusion_column:
@@ -279,7 +362,7 @@ with selected_model_tab:
 
     predictions_table = evaluation_table.copy()
     predictions_table["predicted_variety"] = [class_names[code] for code in selected_evaluation.predicted_class_codes]
-    predictions_table["is_correct"] = predictions_table["predicted_variety"] == predictions_table[target_column].astype(str)
+    predictions_table["is_correct"] = selected_evaluation.predicted_class_codes == true_class_codes
     st.download_button(
         "Download predictions as CSV",
         data=predictions_table.to_csv(index=False).encode("utf-8"),
@@ -300,13 +383,19 @@ with comparison_tab:
         comparison_table.style.format("{:.4f}", na_rep="n/a").highlight_max(axis=0, color="#f6d7a7"),
         width="stretch",
     )
-    best_model_name = comparison_table["MCC"].idxmax()
-    st.success(f"Best model on this data by MCC: **{best_model_name}** "
-               f"(MCC {comparison_table.loc[best_model_name, 'MCC']:.4f})")
+    # MCC is the preferred ranking metric; it is undefined when the file
+    # holds only one variety, so Accuracy is used as the fallback.
+    ranking_metric_name = "MCC" if comparison_table["MCC"].notna().any() else "Accuracy"
+    best_model_name = comparison_table[ranking_metric_name].idxmax()
+    st.success(f"Best model on this data by {ranking_metric_name}: **{best_model_name}** "
+               f"({ranking_metric_name} {comparison_table.loc[best_model_name, ranking_metric_name]:.4f})")
 
     metric_to_plot = st.radio("Metric to plot", METRIC_DISPLAY_ORDER, horizontal=True, index=5)
-    st.pyplot(draw_metric_ranking(comparison_table[metric_to_plot]))
-    plt.close("all")
+    if comparison_table[metric_to_plot].notna().any():
+        st.pyplot(draw_metric_ranking(comparison_table[metric_to_plot]))
+        plt.close("all")
+    else:
+        st.caption(f"{metric_to_plot} is not defined for this file, so there is nothing to plot.")
 
 # --- Tab 3: background -------------------------------------------------------
 with about_tab:
