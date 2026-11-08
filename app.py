@@ -37,7 +37,16 @@ from model_evaluation import (
     load_training_metadata,
 )
 
-st.set_page_config(page_title="Dry Bean Variety Classifier", page_icon="🫘", layout="wide")
+st.set_page_config(page_title="ML Classification Evaluator", layout="wide")
+
+# Shown in the sidebar under the model selection.
+STUDENT_DETAILS = {
+    "Name": "Asfab K",
+    "BITS ID": "2026AJ05574",
+    "Subject": "Machine Learning",
+    "Course code": "S1-26_AIMLZG565",
+    "Semester": "I Semester 2026-27",
+}
 
 # Short, general descriptions of each variety, shown in the "About" tab.
 BEAN_VARIETY_NOTES = {
@@ -149,7 +158,7 @@ target_column = training_metadata["target_column"]
 # Sidebar: data source and model choice
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.header("① Test data")
+    st.header("Test data")
     uploaded_file = st.file_uploader(
         "Upload a labelled test CSV",
         type=["csv"],
@@ -160,15 +169,27 @@ with st.sidebar:
 
     if TEST_DATA_FILE.exists():
         st.download_button(
-            "⬇ Download sample test CSV",
+            "Download sample test CSV",
             data=TEST_DATA_FILE.read_bytes(),
             file_name="test_data.csv",
             mime="text/csv",
             help="Download this file, then upload it above to try the app.",
         )
 
-    st.header("② Classifier")
+    st.header("Model selection")
     selected_model_name = st.selectbox("Choose a model", list(MODEL_FILE_NAME_BY_DISPLAY_NAME.keys()))
+
+    st.divider()
+    st.header("Student details")
+    student_detail_rows = "".join(
+        f"<tr><td style='border:none;padding:3px 12px 3px 0;font-weight:600;white-space:nowrap'>{label}</td>"
+        f"<td style='border:none;padding:3px 0'>{value}</td></tr>"
+        for label, value in STUDENT_DETAILS.items()
+    )
+    st.markdown(
+        f"<table style='border:none;font-size:0.9rem;border-collapse:collapse'>{student_detail_rows}</table>",
+        unsafe_allow_html=True,
+    )
 
     st.divider()
     st.caption(
@@ -180,7 +201,19 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 # Main area
 # ---------------------------------------------------------------------------
-st.title("🫘 Dry Bean Variety Classifier")
+# Page heading: large blue title with a grey course line underneath.
+st.markdown(
+    """
+    <h1 style="color:#3B6BA5;font-weight:700;margin-bottom:0;padding-bottom:0">
+        Machine Learning Classification Evaluator
+    </h1>
+    <p style="color:#8A8F98;font-size:1.05rem;margin-top:4px">
+        M.Tech (AIML) &ndash; Machine Learning Assignment 2 | BITS Pilani
+    </p>
+    """,
+    unsafe_allow_html=True,
+)
+st.subheader("Dry Bean Variety Classification")
 st.markdown(
     "Which of **7 dry bean varieties** is this bean? Each row is one bean photographed by a "
     "computer-vision system and described by 16 shape measurements. "
@@ -195,7 +228,7 @@ elif use_bundled_test_data and TEST_DATA_FILE.exists():
     evaluation_table = pd.read_csv(TEST_DATA_FILE)
     data_source_label = "bundled test_data.csv"
 else:
-    st.info("👈 Upload a test CSV in the sidebar, or switch on the bundled test data.")
+    st.info("Upload a test CSV in the sidebar, or switch on the bundled test data.")
     st.stop()
 
 upload_problems = find_upload_problems(evaluation_table, training_metadata)
@@ -215,7 +248,7 @@ with st.expander(f"Preview: {data_source_label} — {len(evaluation_table):,} ro
     st.dataframe(evaluation_table.head(20), width="stretch")
 
 selected_model_tab, comparison_tab, about_tab = st.tabs(
-    ["🔍 Selected model", "📊 Compare all models", "ℹ️ About the data & models"]
+    ["Selected model", "Compare all models", "About the data & models"]
 )
 
 # --- Tab 1: one model in detail -------------------------------------------
@@ -248,7 +281,7 @@ with selected_model_tab:
     predictions_table["predicted_variety"] = [class_names[code] for code in selected_evaluation.predicted_class_codes]
     predictions_table["is_correct"] = predictions_table["predicted_variety"] == predictions_table[target_column].astype(str)
     st.download_button(
-        "⬇ Download predictions as CSV",
+        "Download predictions as CSV",
         data=predictions_table.to_csv(index=False).encode("utf-8"),
         file_name=f"predictions_{selected_model_name.lower().replace(' ', '_')}.csv",
         mime="text/csv",
