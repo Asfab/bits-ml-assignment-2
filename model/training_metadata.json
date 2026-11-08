@@ -1,0 +1,102 @@
+{
+  "dataset_file": "data/dry_bean_dataset.csv",
+  "target_column": "Class",
+  "feature_columns": [
+    "Area",
+    "Perimeter",
+    "MajorAxisLength",
+    "MinorAxisLength",
+    "AspectRation",
+    "Eccentricity",
+    "ConvexArea",
+    "EquivDiameter",
+    "Extent",
+    "Solidity",
+    "roundness",
+    "Compactness",
+    "ShapeFactor1",
+    "ShapeFactor2",
+    "ShapeFactor3",
+    "ShapeFactor4"
+  ],
+  "class_names": [
+    "BARBUNYA",
+    "BOMBAY",
+    "CALI",
+    "DERMASON",
+    "HOROZ",
+    "SEKER",
+    "SIRA"
+  ],
+  "class_counts": {
+    "BARBUNYA": 1322,
+    "BOMBAY": 522,
+    "CALI": 1630,
+    "DERMASON": 3546,
+    "HOROZ": 1860,
+    "SEKER": 2027,
+    "SIRA": 2636
+  },
+  "training_row_count": 10834,
+  "test_row_count": 2709,
+  "random_seed": 42,
+  "python_version": "3.13.18",
+  "sklearn_version": "1.6.1",
+  "trained_at_utc": "2026-11-08T05:19:33+00:00",
+  "test_scores_by_model": {
+    "Logistic Regression": {
+      "Accuracy": 0.9195275009228497,
+      "AUC": 0.9934531880963212,
+      "Precision": 0.9201155383128901,
+      "Recall": 0.9195275009228497,
+      "F1": 0.9196670651405702,
+      "MCC": 0.9027600755701143
+    },
+    "Decision Tree": {
+      "Accuracy": 0.9069767441860465,
+      "AUC": 0.9729322389539681,
+      "Precision": 0.907511570045785,
+      "Recall": 0.9069767441860465,
+      "F1": 0.9071158307007768,
+      "MCC": 0.8875081379772648
+    },
+    "KNN": {
+      "Accuracy": 0.9132521225544481,
+      "AUC": 0.9851279851557166,
+      "Precision": 0.9142008171836952,
+      "Recall": 0.9132521225544481,
+      "F1": 0.9134296133840882,
+      "MCC": 0.8951344315704995
+    },
+    "Naive Bayes": {
+      "Accuracy": 0.8970099667774086,
+      "AUC": 0.9898795733602761,
+      "Precision": 0.8996526040384818,
+      "Recall": 0.8970099667774086,
+      "F1": 0.8971987029593252,
+      "MCC": 0.8761707062067166
+    },
+    "Support Vector Machine": {
+      "Accuracy": 0.9235880398671097,
+      "AUC": 0.993137453230096,
+      "Precision": 0.9237635111618339,
+      "Recall": 0.9235880398671097,
+      "F1": 0.9236217970516797,
+      "MCC": 0.9075640920933095
+    }
+  },
+  "training_accuracy_by_model": {
+    "Logistic Regression": 0.9261583902529075,
+    "Decision Tree": 0.9518183496400221,
+    "KNN": 1.0,
+    "Naive Bayes": 0.8971755584271737,
+    "Support Vector Machine": 0.9396344840317519
+  },
+  "training_seconds_by_model": {
+    "Logistic Regression": 0.17,
+    "Decision Tree": 0.25,
+    "KNN": 0.01,
+    "Naive Bayes": 0.02,
+    "Support Vector Machine": 1.91
+  }
+}
