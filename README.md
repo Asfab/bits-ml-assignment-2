@@ -1,4 +1,4 @@
-# Dry Bean Variety Classification — ML Assignment 2
+# Machine Learning Classification Evaluaton - ML Assignment 2
 
 M.Tech (AIML), BITS Pilani WILP · Machine Learning · Assignment 2
 
@@ -61,7 +61,7 @@ Repository: **https://github.com/Asfab/bits-ml-assignment-2**
 Live Streamlit app: **https://bits-ml-assignment-2-jpnrfcrbnq8skkjkxst6xj.streamlit.app**
 
 ```
-ml-assignment-2/
+bits-ml-assignment-2/
 ├── app.py                    # Streamlit app: loads saved models, never retrains
 ├── train_models.py           # trains and evaluates the 5 models, saves them
 ├── model_evaluation.py       # shared metric code used by training and by the app

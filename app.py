@@ -1,4 +1,5 @@
 """
+Machine Learning Classification Evaluaton
 Dry Bean Variety Classifier — Streamlit app for ML Assignment 2.
 
 Required features:
