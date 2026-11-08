@@ -212,7 +212,7 @@ except ValueError as label_error:
     st.stop()
 
 with st.expander(f"Preview: {data_source_label} — {len(evaluation_table):,} rows"):
-    st.dataframe(evaluation_table.head(20), use_container_width=True)
+    st.dataframe(evaluation_table.head(20), width="stretch")
 
 selected_model_tab, comparison_tab, about_tab = st.tabs(
     ["🔍 Selected model", "📊 Compare all models", "ℹ️ About the data & models"]
@@ -242,7 +242,7 @@ with selected_model_tab:
     with report_column:
         st.markdown("**Classification report**")
         report_table = build_classification_report(true_class_codes, selected_evaluation.predicted_class_codes, class_names)
-        st.dataframe(report_table.style.format("{:.3f}"), use_container_width=True)
+        st.dataframe(report_table.style.format("{:.3f}"), width="stretch")
 
     predictions_table = evaluation_table.copy()
     predictions_table["predicted_variety"] = [class_names[code] for code in selected_evaluation.predicted_class_codes]
@@ -265,7 +265,7 @@ with comparison_tab:
     st.subheader(f"All five models on {data_source_label}")
     st.dataframe(
         comparison_table.style.format("{:.4f}", na_rep="n/a").highlight_max(axis=0, color="#f6d7a7"),
-        use_container_width=True,
+        width="stretch",
     )
     best_model_name = comparison_table["MCC"].idxmax()
     st.success(f"Best model on this data by MCC: **{best_model_name}** "
@@ -285,7 +285,7 @@ with about_tab:
             "Rows": [training_metadata["class_counts"][name] for name in class_names],
             "Description": [BEAN_VARIETY_NOTES.get(name, "") for name in class_names],
         })
-        st.dataframe(variety_table, hide_index=True, use_container_width=True)
+        st.dataframe(variety_table, hide_index=True, width="stretch")
     with training_column:
         st.markdown("**Training accuracy vs test accuracy**")
         st.caption("A large gap means the model memorised the training data (overfitting).")
@@ -296,7 +296,7 @@ with about_tab:
         })
         fit_table["Gap"] = fit_table["Training accuracy"] - fit_table["Test accuracy"]
         st.dataframe(fit_table.style.format({"Training accuracy": "{:.4f}", "Test accuracy": "{:.4f}",
-                                             "Gap": "{:+.4f}", "Fit time (s)": "{:.2f}"}), use_container_width=True)
+                                             "Gap": "{:+.4f}", "Fit time (s)": "{:.2f}"}), width="stretch")
     st.markdown(
         "Source: Koklu, M. & Ozkan, I. A. (2020), *Multiclass classification of dry beans using computer "
         "vision and machine learning techniques*, UCI Machine Learning Repository, dataset 602."
