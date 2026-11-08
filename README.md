@@ -58,7 +58,7 @@ evaluates the saved models on uploaded test data without retraining them.
 
 Repository: **https://github.com/Asfab/bits-ml-assignment-2**
 
-Live Streamlit app: 
+Live Streamlit app: **https://bits-ml-assignment-2-jpnrfcrbnq8skkjkxst6xj.streamlit.app**
 
 ```
 ml-assignment-2/
